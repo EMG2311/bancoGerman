@@ -5,9 +5,20 @@ Spring Boot 4.1 · Java 21 · MySQL 8 · Flyway · JWT (HS256).
 ## Correr
 
 1. MySQL en `localhost:3306`. La base `deudas` se crea sola y Flyway aplica `db/migration`.
-2. Credenciales: `src/main/resources/application-local.properties` (fuera de git), con
-   `spring.datasource.password` y `app.jwt.secret` (≥ 32 caracteres). También se pueden pasar
-   como variables de entorno `DB_PASSWORD` y `JWT_SECRET`.
+2. Configuración: copiá `.env.example` como `.env` (queda fuera de git) y completá al menos
+   `DB_PASSWORD` y `JWT_SECRET` (≥ 32 caracteres). Spring lo lee al arrancar desde la carpeta
+   `demo/`; si definís la misma variable en el sistema, gana la del sistema.
+
+   | Variable | Default | Para qué |
+   |---|---|---|
+   | `DB_URL` | `jdbc:mysql://localhost:3306/deudas?...` | Conexión a MySQL |
+   | `DB_USERNAME` | `root` | Usuario de MySQL |
+   | `DB_PASSWORD` | — | Contraseña de MySQL |
+   | `JWT_SECRET` | — | Firma de los tokens (obligatoria) |
+   | `JWT_EXPIRACION` | `7d` | Duración de la sesión |
+   | `PORT` | `8080` | Puerto HTTP |
+   | `PUSH_PROVEEDOR` | `expo` | `expo` (push reales) o `log` |
+   | `EXPO_ACCESS_TOKEN` | vacío | Solo con "enhanced push security" en EAS |
 3. `./mvnw spring-boot:run` → `http://localhost:8080`
 
 Tests: `./mvnw test` (usan la base `deudas_test`).

@@ -30,7 +30,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-@ActiveProfiles({"local", "test"})
+@ActiveProfiles("test")
 public abstract class ApiTestBase {
 
 	@Autowired
