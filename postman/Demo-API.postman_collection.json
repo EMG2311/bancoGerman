@@ -1,0 +1,721 @@
+{
+  "info": {
+    "_postman_id": "b7f2c1a4-9d3e-4a6b-8f10-1c2d3e4f5a6b",
+    "name": "Banco German - Demo API",
+    "description": "Colección completa de la API de deudas entre personas.\n\nFlujo típico:\n1. `Auth > Registro` (acreedor) y `Auth > Registro` (deudor). El token se guarda solo.\n2. `Relaciones > Invitar` (acreedor invita al email del deudor). Se guarda `relacionId`.\n3. `Relaciones > Aceptar` (logueado como deudor).\n4. `Movimientos > Registrar cargo` / `Registrar pago`, `Solicitudes de cobro > Crear`.\n5. `Notificaciones` y `Dispositivos` para el push.\n\nAutenticación: Bearer Token. La variable `{{token}}` se llena automáticamente al registrarse o loguearse.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string",
+      "description": "URL base del backend Spring Boot."
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "description": "JWT. Se completa automáticamente con Registro o Login."
+    },
+    {
+      "key": "emailDeudor",
+      "value": "deudor@test.com",
+      "type": "string",
+      "description": "Email del deudor a invitar."
+    },
+    {
+      "key": "relacionId",
+      "value": "1",
+      "type": "string",
+      "description": "ID de la relación activa. Se completa al crear/aceptar una relación."
+    },
+    {
+      "key": "movimientoId",
+      "value": "1",
+      "type": "string",
+      "description": "ID de movimiento."
+    },
+    {
+      "key": "solicitudId",
+      "value": "1",
+      "type": "string",
+      "description": "ID de solicitud de cobro."
+    },
+    {
+      "key": "notificacionId",
+      "value": "1",
+      "type": "string",
+      "description": "ID de notificación."
+    },
+    {
+      "key": "dispositivoId",
+      "value": "1",
+      "type": "string",
+      "description": "ID de dispositivo registrado."
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Auth",
+      "description": "Registro y login. Ambos devuelven un `token` (JWT) que se guarda automáticamente en la variable `{{token}}`.",
+      "item": [
+        {
+          "name": "Registro",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () { pm.response.to.have.status(201); });",
+                  "pm.test('Guardar token', function () {",
+                  "    var json = pm.response.json();",
+                  "    if (json.token) { pm.collectionVariables.set('token', json.token); }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "auth": { "type": "noauth" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Juan Perez\",\n  \"email\": \"juan@test.com\",\n  \"telefono\": \"1155512345\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/registro",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "registro"]
+            },
+            "description": "Crea un usuario nuevo. Devuelve el JWT y los datos del usuario.\n\n- `nombre`: obligatorio, máx 100.\n- `email`: obligatorio, único, máx 255.\n- `telefono`: opcional, máx 30.\n- `password`: obligatorio, entre 8 y 72 caracteres."
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Guardar token', function () {",
+                  "    var json = pm.response.json();",
+                  "    if (json.token) { pm.collectionVariables.set('token', json.token); }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "auth": { "type": "noauth" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"juan@test.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Inicia sesión con email y password. Devuelve el JWT (se guarda en `{{token}}`) y los datos del usuario.\n\nEjecutá este request antes de los requests autenticados."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Usuarios",
+      "description": "Datos del usuario autenticado.",
+      "item": [
+        {
+          "name": "Mi perfil (me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/usuarios/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "usuarios", "me"]
+            },
+            "description": "Devuelve el perfil del usuario logueado: id, nombre, email y teléfono."
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar mi perfil",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Juan P. Perez\",\n  \"telefono\": \"1199988877\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/usuarios/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "usuarios", "me"]
+            },
+            "description": "Actualiza parcialmente el perfil del usuario logueado.\n\n- `nombre`: opcional, 1-100 caracteres, no puede ser vacío.\n- `telefono`: opcional, máx 30.\n\nEnviá solo los campos que querés cambiar."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Relaciones",
+      "description": "Relaciones acreedor-deudor (quién le debe a quién). Una relación INVITADA aún no admite movimientos; hay que aceptarla para pasar a ACTIVA.",
+      "item": [
+        {
+          "name": "Invitar deudor (crear relacion)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () { pm.response.to.have.status(201); });",
+                  "pm.test('Guardar relacionId', function () {",
+                  "    var json = pm.response.json();",
+                  "    if (json.id) { pm.collectionVariables.set('relacionId', json.id); }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emailDeudor\": \"{{emailDeudor}}\",\n  \"requiereConfirmacion\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/relaciones",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "relaciones"]
+            },
+            "description": "El usuario logueado (ACREEDOR) invita a un deudor por email. Crea la relación en estado INVITADA y la devuelve.\n\n- `emailDeudor`: obligatorio.\n- `requiereConfirmacion`: opcional (default false). Si es true, los pagos del deudor quedan PENDIENTE hasta que el acreedor los confirme.\n\nGuarda `relacionId` automáticamente."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar mis relaciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/relaciones?rol=ACREEDOR&estado=ACTIVA",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "relaciones"],
+              "query": [
+                { "key": "rol", "value": "ACREEDOR", "description": "Filtra por rol del usuario: ACREEDOR | DEUDOR. Opcional." },
+                { "key": "estado", "value": "ACTIVA", "description": "Filtra por estado: INVITADA | ACTIVA | RECHAZADA | ELIMINADA. Opcional." }
+              ]
+            },
+            "description": "Lista todas las relaciones del usuario logueado, con saldos. Ambos filtros son opcionales (podés borrarlos de la query)."
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener relacion por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/relaciones/{{relacionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "relaciones", "{{relacionId}}"]
+            },
+            "description": "Detalle de una relación puntual: roles, saldos, estado y flag de confirmación. Solo accesible para las partes."
+          },
+          "response": []
+        },
+        {
+          "name": "Aceptar relacion (deudor)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Guardar relacionId', function () {",
+                  "    var json = pm.response.json();",
+                  "    if (json.id) { pm.collectionVariables.set('relacionId', json.id); }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/relaciones/{{relacionId}}/aceptar",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "relaciones", "{{relacionId}}", "aceptar"]
+            },
+            "description": "El deudor acepta la invitación. La relación pasa a ACTIVA y ya se pueden cargar movimientos.\n\nEjecutalo logueado como el deudor."
+          },
+          "response": []
+        },
+        {
+          "name": "Rechazar relacion (deudor)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/relaciones/{{relacionId}}/rechazar",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "relaciones", "{{relacionId}}", "rechazar"]
+            },
+            "description": "El deudor rechaza la invitación. La relación queda RECHAZADA (estado final)."
+          },
+          "response": []
+        },
+        {
+          "name": "Cambiar confirmacion",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requiereConfirmacion\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/relaciones/{{relacionId}}/confirmacion",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "relaciones", "{{relacionId}}", "confirmacion"]
+            },
+            "description": "Activa o desactiva la confirmación de pagos en la relación.\n\n- `requiereConfirmacion`: obligatorio (true | false).\n\nCon true, los pagos del deudor quedan PENDIENTE hasta que el acreedor los confirme."
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar relacion",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/relaciones/{{relacionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "relaciones", "{{relacionId}}"]
+            },
+            "description": "Borrado lógico de la relación (estado ELIMINADA). El historial se conserva. Devuelve 204 No Content."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Movimientos",
+      "description": "Cargos (suben el saldo, solo el acreedor) y pagos (bajan el saldo). Saldo y paginación de movimientos.",
+      "item": [
+        {
+          "name": "Listar movimientos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/relaciones/{{relacionId}}/movimientos?estado=PENDIENTE&pagina=0&tamanio=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "relaciones", "{{relacionId}}", "movimientos"],
+              "query": [
+                { "key": "estado", "value": "PENDIENTE", "description": "PENDIENTE | CONFIRMADO | RECHAZADO. Opcional." },
+                { "key": "pagina", "value": "0", "description": "Página (>= 0). Default 0." },
+                { "key": "tamanio", "value": "20", "description": "Tamaño de página (1-100). Default 20." }
+              ]
+            },
+            "description": "Lista paginada de movimientos de la relación, con filtro opcional por estado."
+          },
+          "response": []
+        },
+        {
+          "name": "Ver saldo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/relaciones/{{relacionId}}/saldo",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "relaciones", "{{relacionId}}", "saldo"]
+            },
+            "description": "Resumen de saldos de la relación: `saldo`, `saldoSegunLedger`, `pendienteConfirmacion`, `disponibleParaPagar` y `consistente` (control de integridad)."
+          },
+          "response": []
+        },
+        {
+          "name": "Registrar cargo (acreedor)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () { pm.response.to.have.status(201); });",
+                  "pm.test('Guardar movimientoId', function () {",
+                  "    var json = pm.response.json();",
+                  "    if (json.id) { pm.collectionVariables.set('movimientoId', json.id); }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"monto\": 1500.00,\n  \"descripcion\": \"Compra supermercado\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/relaciones/{{relacionId}}/cargos",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "relaciones", "{{relacionId}}", "cargos"]
+            },
+            "description": "El ACREEDOR registra un cargo (sube lo que el deudor debe).\n\n- `monto`: obligatorio, hasta 13 enteros y 2 decimales.\n- `descripcion`: opcional, máx 255.\n\nGuarda `movimientoId` automáticamente."
+          },
+          "response": []
+        },
+        {
+          "name": "Registrar pago (deudor)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () { pm.response.to.have.status(201); });",
+                  "pm.test('Guardar movimientoId', function () {",
+                  "    var json = pm.response.json();",
+                  "    if (json.id) { pm.collectionVariables.set('movimientoId', json.id); }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"monto\": 500.00,\n  \"medioPago\": \"TRANSFERENCIA\",\n  \"descripcion\": \"Pago parcial\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/relaciones/{{relacionId}}/pagos",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "relaciones", "{{relacionId}}", "pagos"]
+            },
+            "description": "Registra un pago (baja el saldo).\n\n- `monto`: obligatorio.\n- `medioPago`: obligatorio (TRANSFERENCIA | EFECTIVO).\n- `descripcion`: opcional, máx 255.\n\nSi la relación requiere confirmación, el movimiento queda PENDIENTE."
+          },
+          "response": []
+        },
+        {
+          "name": "Confirmar movimiento",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/movimientos/{{movimientoId}}/confirmar",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "movimientos", "{{movimientoId}}", "confirmar"]
+            },
+            "description": "Confirma un movimiento PENDIENTE (lo hace el acreedor cuando la relación requiere confirmación)."
+          },
+          "response": []
+        },
+        {
+          "name": "Rechazar movimiento",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/movimientos/{{movimientoId}}/rechazar",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "movimientos", "{{movimientoId}}", "rechazar"]
+            },
+            "description": "Rechaza un movimiento PENDIENTE."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Solicitudes de cobro",
+      "description": "El deudor pide pagar (crea la solicitud); el acreedor la acepta pagando o la rechaza.",
+      "item": [
+        {
+          "name": "Crear solicitud",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () { pm.response.to.have.status(201); });",
+                  "pm.test('Guardar solicitudId', function () {",
+                  "    var json = pm.response.json();",
+                  "    if (json.id) { pm.collectionVariables.set('solicitudId', json.id); }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"monto\": 300.00,\n  \"descripcion\": \"Quiero pagar esta parte\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/relaciones/{{relacionId}}/solicitudes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "relaciones", "{{relacionId}}", "solicitudes"]
+            },
+            "description": "El deudor crea una solicitud para pagar un monto de la relación.\n\n- `monto`: obligatorio.\n- `descripcion`: opcional, máx 255.\n\nGuarda `solicitudId` automáticamente."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar solicitudes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/relaciones/{{relacionId}}/solicitudes?estado=PENDIENTE",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "relaciones", "{{relacionId}}", "solicitudes"],
+              "query": [
+                { "key": "estado", "value": "PENDIENTE", "description": "PENDIENTE | PAGADA | RECHAZADA. Opcional." }
+              ]
+            },
+            "description": "Lista las solicitudes de cobro de la relación, con filtro opcional por estado."
+          },
+          "response": []
+        },
+        {
+          "name": "Pagar solicitud (acreedor)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"medioPago\": \"TRANSFERENCIA\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/solicitudes/{{solicitudId}}/pagar",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "solicitudes", "{{solicitudId}}", "pagar"]
+            },
+            "description": "El ACREEDOR acepta la solicitud y registra el pago. Devuelve el movimiento generado.\n\n- `medioPago`: obligatorio (TRANSFERENCIA | EFECTIVO)."
+          },
+          "response": []
+        },
+        {
+          "name": "Rechazar solicitud",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/solicitudes/{{solicitudId}}/rechazar",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "solicitudes", "{{solicitudId}}", "rechazar"]
+            },
+            "description": "Rechaza una solicitud de cobro. Queda en estado RECHAZADA."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. Notificaciones",
+      "description": "Bandeja de notificaciones del usuario logueado.",
+      "item": [
+        {
+          "name": "Listar notificaciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notificaciones?soloNoLeidas=false&pagina=0&tamanio=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notificaciones"],
+              "query": [
+                { "key": "soloNoLeidas", "value": "false", "description": "true para traer solo las no leídas. Default false." },
+                { "key": "pagina", "value": "0", "description": "Página (>= 0). Default 0." },
+                { "key": "tamanio", "value": "20", "description": "Tamaño de página (1-100). Default 20." }
+              ]
+            },
+            "description": "Lista paginada de notificaciones. Podés filtrar solo las no leídas."
+          },
+          "response": []
+        },
+        {
+          "name": "Cantidad de no leidas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notificaciones/no-leidas/cantidad",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notificaciones", "no-leidas", "cantidad"]
+            },
+            "description": "Devuelve `{ \"cantidad\": N }` con la cantidad de notificaciones no leídas. Ideal para el badge de la app."
+          },
+          "response": []
+        },
+        {
+          "name": "Marcar como leida",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notificaciones/{{notificacionId}}/leida",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notificaciones", "{{notificacionId}}", "leida"]
+            },
+            "description": "Marca una notificación puntual como leída."
+          },
+          "response": []
+        },
+        {
+          "name": "Marcar todas como leidas",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notificaciones/leer-todas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notificaciones", "leer-todas"]
+            },
+            "description": "Marca todas las notificaciones del usuario como leídas. Devuelve `{ \"actualizadas\": N }`."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7. Dispositivos",
+      "description": "Registro de dispositivos para notificaciones push (token + plataforma).",
+      "item": [
+        {
+          "name": "Registrar dispositivo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Guardar dispositivoId', function () {",
+                  "    var json = pm.response.json();",
+                  "    if (json.id) { pm.collectionVariables.set('dispositivoId', json.id); }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pushToken\": \"ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]\",\n  \"plataforma\": \"ANDROID\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/dispositivos",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dispositivos"]
+            },
+            "description": "Registra (o actualiza) el dispositivo del usuario para recibir push.\n\n- `pushToken`: obligatorio, máx 512.\n- `plataforma`: obligatorio (ANDROID | IOS | WEB).\n\nGuarda `dispositivoId` automáticamente."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar dispositivos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/dispositivos",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dispositivos"]
+            },
+            "description": "Lista los dispositivos registrados por el usuario logueado."
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar dispositivo",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/dispositivos/{{dispositivoId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dispositivos", "{{dispositivoId}}"]
+            },
+            "description": "Desregistra un dispositivo (por ejemplo al cerrar sesión). Devuelve 204 No Content."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
